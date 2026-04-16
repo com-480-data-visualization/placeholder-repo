@@ -9,7 +9,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
 import Globe from 'globe.gl' // This is the default import
 
 // --- CONFIGURATION VARIABLES ---
@@ -38,6 +38,8 @@ const getPolygonColor = (d) => {
 }
 
 onMounted(async () => {
+  await nextTick() 
+  
   if (!globeEl.value) return
 
   try {

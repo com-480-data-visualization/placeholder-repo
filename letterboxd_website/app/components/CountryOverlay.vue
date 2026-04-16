@@ -10,8 +10,28 @@
           <button class="close-button" @click="close" aria-label="Close">×</button>
         </div>
         <div class="modal-body">
-          <!-- Future Letterboxd Dataviz goes here -->
-          <p>Movie dataviz will be displayed here...</p>
+          <!-- Loading & Empty States -->
+          <p v-if="movies.length === 0 && !loading">No movies found for this country yet.</p>
+          <p v-if="movies.length === 0 && loading">Loading movies...</p>
+          
+          <!-- Movie List -->
+          <div class="movie-list" style="display: flex; flex-direction: column; gap: 1rem;">
+            <div v-for="movie in movies" :key="movie.id" style="border-bottom: 1px solid #ccc; padding-bottom: 1rem;">
+              <h3 style="margin: 0; color: #ffb74d;">{{ movie.name }} ({{ movie.date }})</h3>
+              <p style="margin: 5px 0;">Rating: {{ movie.rating || 'N/A' }} / 5</p>
+              <p style="margin: 0; font-size: 0.9rem;">{{ movie.description }}</p>
+            </div>
+          </div>
+          
+          <!-- "Show More" Pagination Button -->
+          <button 
+            v-if="hasMore && movies.length > 0" 
+            @click="fetchMovies" 
+            :disabled="loading"
+            style="margin-top: 1.5rem; padding: 10px 20px; font-size: 1rem; cursor: pointer; border-radius: 8px;"
+          >
+            {{ loading ? 'Loading 25 more...' : 'Show More (25)' }}
+          </button>
         </div>
       </div>
     </div>
@@ -19,39 +39,73 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
-  country: {
-    type: Object,
-    default: null
-  },
-  isVisible: {
-    type: Boolean,
-    default: false
-  }
+  country: { type: Object, default: null },
+  isVisible: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close'])
 
 const countryProps = computed(() => props.country?.properties)
+const countryName = computed(() => countryProps.value?.ADMIN)
 
 const flagUrl = computed(() => {
   if (!countryProps.value) return null
-  
-  // Use ISO_A2 first, but if it's broken (-99), fallback to WB_A2 or FIPS_10_
   let isoCode = countryProps.value.ISO_A2
   if (!isoCode || isoCode === '-99') isoCode = countryProps.value.WB_A2
   if (!isoCode || isoCode === '-99') isoCode = countryProps.value.FIPS_10_
   if (!isoCode || isoCode === '-99') return null 
-
   return `https://flagcdn.com/${isoCode.toLowerCase()}.svg`
+})
+
+// --- MOVIE FETCHING LOGIC ---
+const movies = ref([])
+const offset = ref(0)
+const loading = ref(false)
+const hasMore = ref(true)
+
+const fetchMovies = async () => {
+  if (!countryName.value || loading.value || !hasMore.value) return
+  
+  loading.value = true
+  try {
+    const data = await $fetch('/api/movies', {
+      params: { 
+        country: countryName.value, 
+        offset: offset.value 
+      }
+    })
+    
+    if (data.length < 25) {
+      hasMore.value = false 
+    }
+    
+    movies.value.push(...data) 
+    offset.value += 25 
+  } catch (err) {
+    console.error("Failed to fetch movies", err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Every time the overlay opens, clear the previous list and fetch the first 25
+watch(() => props.isVisible, (newVal) => {
+  if (newVal) {
+    movies.value = []
+    offset.value = 0
+    hasMore.value = true
+    fetchMovies()
+  }
 })
 
 const close = () => {
   emit('close')
 }
 </script>
+
 
 <style scoped>
 .overlay-backdrop {
@@ -61,7 +115,6 @@ const close = () => {
   width: 100vw;
   height: 100vh;
   z-index: 10;
-  /* Darken the globe behind slightly so the modal pops out, and grab background clicks */
   background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
