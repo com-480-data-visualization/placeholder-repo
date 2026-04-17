@@ -1,14 +1,23 @@
 <template>
   <div>
-    <WorldGlobe :selectedCountry="selectedCountry" @country-clicked="onCountryClicked" />
-    <SearchBar @country-selected="onCountryClicked" v-show="!showOverlay" />
-    <CountryOverlay :country="selectedCountry" :isVisible="showOverlay" @close="closeOverlay" />
+    <TabBar :activeTab="activeTab" @update:activeTab="activeTab = $event" />
+
+    <template v-if="activeTab === 'globe'">
+      <WorldGlobe :selectedCountry="selectedCountry" @country-clicked="onCountryClicked" />
+      <SearchBar @country-selected="onCountryClicked" v-show="!showOverlay" />
+      <CountryOverlay :country="selectedCountry" :isVisible="showOverlay" @close="closeOverlay" />
+    </template>
+
+    <template v-else-if="activeTab === 'actors'">
+      <ActorGraph />
+    </template>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 
+const activeTab = ref('globe')
 const selectedCountry = ref(null)
 const showOverlay = ref(false)
 
